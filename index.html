@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0c0f1a;
+    --surface: #131726;
+    --surface2: #1a2035;
+    --border: #222840;
+    --accent: #00e5a0;
+    --accent2: #4f8cff;
+    --gold: #f5c842;
+    --red: #ff4d6d;
+    --text: #e8eaf6;
+    --muted: #6b7499;
+    --win: #00e5a0;
+    --loss: #ff4d6d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 12px var(--accent); }
+    50% { opacity: 0.6; box-shadow: 0 0 4px var(--accent); }
+  }
+  .header-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: var(--text); }
+  .header-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 1px; }
+  .last-updated { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── MAIN LAYOUT ── */
+  .main { padding: 20px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── STAT CARDS ROW ── */
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.green::before { background: var(--accent); }
+  .stat-card.blue::before { background: var(--accent2); }
+  .stat-card.gold::before { background: var(--gold); }
+  .stat-card.red::before { background: var(--loss); }
+  .stat-card.purple::before { background: #a78bfa; }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-label { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .stat-value.green { color: var(--accent); }
+  .stat-value.blue { color: var(--accent2); }
+  .stat-value.gold { color: var(--gold); }
+  .stat-value.red { color: var(--loss); }
+  .stat-value.purple { color: #a78bfa; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 5px; font-family: 'DM Mono', monospace; }
+
+  /* ── MIDDLE ROW ── */
+  .mid-row { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 16px; }
+
+  /* ── CHART PANELS ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .panel-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .panel-badge {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+
+  /* ── DONUT CHART ── */
+  .donut-wrap { position: relative; width: 160px; height: 160px; margin: 0 auto; }
+  .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .donut-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+  .donut-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 3px; }
+  .donut-legend { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; }
+  .legend-item { display: flex; align-items: center; justify-content: space-between; }
+  .legend-left { display: flex; align-items: center; gap: 8px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-name { font-size: 11px; color: var(--muted); }
+  .legend-val { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text); }
+
+  /* ── WIN/LOSS BAR ── */
+  .wl-section { display: flex; flex-direction: column; gap: 14px; }
+  .wl-big { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 4px; }
+  .wl-num { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; }
+  .wl-pct-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .wl-bar-wrap { height: 8px; background: rgba(255,77,109,0.25); border-radius: 99px; overflow: hidden; margin: 4px 0; }
+  .wl-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+  .wl-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .wl-item { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+  .wl-item-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .wl-item-val { font-family: 'DM Mono', monospace; font-size: 18px; margin-top: 4px; }
+  .wl-item-val.win { color: var(--win); }
+  .wl-item-val.loss { color: var(--loss); }
+  .wl-item-sub { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+  /* ── EMOTION BREAKDOWN ── */
+  .emotion-list { display: flex; flex-direction: column; gap: 10px; }
+  .emotion-item { display: flex; align-items: center; gap: 10px; }
+  .emotion-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
+  .emotion-bar-wrap { flex: 1; height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .emotion-bar { height: 100%; border-radius: 99px; }
+  .emotion-count { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text); width: 20px; text-align: right; }
+
+  /* ── BOTTOM ROW ── */
+  .bottom-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+  /* ── MONTHLY CHART ── */
+  .monthly-chart-wrap { height: 180px; position: relative; }
+
+  /* ── BEST SETUPS ── */
+  .setup-list { display: flex; flex-direction: column; gap: 9px; }
+  .setup-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2); border-radius: 8px; padding: 10px 13px;
+  }
+  .setup-rank { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); width: 18px; }
+  .setup-name { font-size: 12px; flex: 1; padding-left: 8px; }
+  .setup-wr { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .setup-pnl { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); }
+
+  /* ── DATA ENTRY TABLE ── */
+  .data-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .data-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .data-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .btn-add {
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-add:hover { opacity: 0.85; }
+  .data-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface2);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid rgba(34,40,64,0.5); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(79,140,255,0.04); }
+  .td-mono { font-family: 'DM Mono', monospace; font-size: 11px; }
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 99px; font-size: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-win { background: rgba(0,229,160,0.12); color: var(--win); border: 1px solid rgba(0,229,160,0.2); }
+  .badge-loss { background: rgba(255,77,109,0.12); color: var(--loss); border: 1px solid rgba(255,77,109,0.2); }
+  .badge-long { background: rgba(79,140,255,0.12); color: var(--accent2); border: 1px solid rgba(79,140,255,0.2); }
+  .badge-short { background: rgba(245,200,66,0.12); color: var(--gold); border: 1px solid rgba(245,200,66,0.2); }
+  .pos { color: var(--win); }
+  .neg { color: var(--loss); }
+
+  /* ── INSTRUCTIONS OVERLAY ── */
+  .instructions {
+    background: linear-gradient(135deg, rgba(0,229,160,0.06), rgba(79,140,255,0.06));
+    border: 1px dashed rgba(0,229,160,0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .instructions-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .instructions-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .instructions-text strong { color: var(--accent); }
+
+  /* ── INPUT MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    width: 520px;
+    max-width: 95vw;
+  }
+  .modal h2 { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-field { display: flex; flex-direction: column; gap: 5px; }
+  .form-field.full { grid-column: 1/-1; }
+  .form-field label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .form-field input, .form-field select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--accent); }
+  .form-field select option { background: var(--surface); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .btn-save {
+    background: var(--accent);
+    border: none;
+    color: var(--bg);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 8px 20px;
+    cursor: pointer;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .mid-row { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-dot"></div>
+    <div>
+      <div class="header-title">TRADING DASHBOARD</div>
+      <div class="header-sub">Personal Performance System</div>
+    </div>
+  </div>
+  <div class="last-updated" id="lastUpdated"></div>
+</div>
+
+<div class="main">
+
+  <!-- INSTRUCTIONS -->
+  <div class="instructions">
+    <div class="instructions-icon">&#9881;</div>
+    <div class="instructions-text">
+      <strong>How to use:</strong> Click <strong style="color:var(--accent)">+ Add Trade</strong> below to log trades. All charts and stats update automatically. To embed in Notion, host this file on <strong>Netlify Drop</strong> (free) and paste the URL into a Notion <strong>/embed</strong> block. See the included guide document for step-by-step instructions.
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stats-row">
+    <div class="stat-card green">
+      <div class="stat-label">Net P&amp;L</div>
+      <div class="stat-value green" id="stat-pnl">$0</div>
+      <div class="stat-sub" id="stat-pnl-sub">0 trades closed</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-value blue" id="stat-wr">0%</div>
+      <div class="stat-sub" id="stat-wr-sub">0W / 0L</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">Avg R Multiple</div>
+      <div class="stat-value gold" id="stat-r">0.00R</div>
+      <div class="stat-sub">per closed trade</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Best Trade</div>
+      <div class="stat-value purple" id="stat-best">$0</div>
+      <div class="stat-sub" id="stat-best-sym">--</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Worst Trade</div>
+      <div class="stat-value red" id="stat-worst">$0</div>
+      <div class="stat-sub" id="stat-worst-sym">--</div>
+    </div>
+  </div>
+
+  <!-- MID ROW -->
+  <div class="mid-row">
+
+    <!-- DONUT: P&L by Account -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">P&amp;L by Account</span>
+        <span class="panel-badge" id="donut-total">$0 total</span>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="donutChart"></canvas>
+        <div class="donut-center">
+          <div class="donut-amount" id="donut-center-val">$0</div>
+          <div class="donut-label">Total P/L</div>
+        </div>
+      </div>
+      <div class="donut-legend" id="donut-legend"></div>
+    </div>
+
+    <!-- WIN / LOSS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Win / Loss</span>
+      </div>
+      <div class="wl-section">
+        <div>
+          <div class="wl-big">
+            <div>
+              <div class="wl-num pos" id="wl-pct">0%</div>
+              <div class="wl-pct-label">Win Rate</div>
+            </div>
+          </div>
+          <div class="wl-bar-wrap">
+            <div class="wl-bar-fill" id="wl-bar" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="wl-breakdown">
+          <div class="wl-item">
+            <div class="wl-item-label">Wins</div>
+            <div class="wl-item-val win" id="wl-wins">0</div>
+            <div class="wl-item-sub" id="wl-wins-pnl">$0.00</div>
+          </div>
+          <div class="wl-item">
+            <div class="wl-item-label">Losses</div>
+            <div class="wl-item-val loss" id="wl-losses">0</div>
+            <div class="wl-item-sub" id="wl-losses-pnl">$0.00</div>
+          </div>
+          <div class="wl-item">
+            <div class="wl-item-label">Avg Win</div>
+            <div class="wl-item-val win" id="wl-avg-win">$0</div>
+          </div>
+          <div class="wl-item">
+            <div class="wl-item-label">Avg Loss</div>
+            <div class="wl-item-val loss" id="wl-avg-loss">$0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMOTION BREAKDOWN -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Emotion Breakdown</span>
+      </div>
+      <div class="emotion-list" id="emotion-list">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">No trades logged yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-row">
+
+    <!-- MONTHLY P&L BAR CHART -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Monthly P&amp;L</span>
+      </div>
+      <div class="monthly-chart-wrap">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- BEST SETUPS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Top Setups</span>
+      </div>
+      <div class="setup-list" id="setup-list">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">No setups yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TRADE LOG TABLE -->
+  <div class="data-section">
+    <div class="data-header">
+      <span class="data-title">Trade Log</span>
+      <button class="btn-add" onclick="openModal()">+ Add Trade</button>
+    </div>
+    <div class="data-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Symbol</th>
+            <th>Account</th>
+            <th>Setup</th>
+            <th>Direction</th>
+            <th>P&amp;L ($)</th>
+            <th>R Multiple</th>
+            <th>Emotion</th>
+            <th>Result</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="trade-tbody">
+          <tr>
+            <td colspan="11" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">
+              No trades yet. Click <strong style="color:var(--accent)">+ Add Trade</strong> to log your first trade.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>&#9998; Log New Trade</h2>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Date</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="form-field">
+        <label>Symbol</label>
+        <input type="text" id="f-symbol" placeholder="EURUSD, AAPL...">
+      </div>
+      <div class="form-field">
+        <label>Account</label>
+        <input type="text" id="f-account" placeholder="Personal, FTMO...">
+      </div>
+      <div class="form-field">
+        <label>Setup</label>
+        <input type="text" id="f-setup" placeholder="Break &amp; Retest...">
+      </div>
+      <div class="form-field">
+        <label>Direction</label>
+        <select id="f-direction">
+          <option value="Long">Long</option>
+          <option value="Short">Short</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Emotion</label>
+        <select id="f-emotion">
+          <option value="Calm">Calm</option>
+          <option value="Disciplined">Disciplined</option>
+          <option value="Anxious">Anxious</option>
+          <option value="FOMO">FOMO</option>
+          <option value="Greedy">Greedy</option>
+          <option value="Frustrated">Frustrated</option>
+          <option value="Revenge">Revenge</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>P&amp;L ($)</label>
+        <input type="number" id="f-pnl" placeholder="-250 or 480">
+      </div>
+      <div class="form-field">
+        <label>Risk Amount ($)</label>
+        <input type="number" id="f-risk" placeholder="100">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTrade()">Save Trade</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let trades = JSON.parse(localStorage.getItem('tsb_trades') || '[]');
+
+// Chart instances
+let donutChart = null;
+let monthlyChart = null;
+
+// ── COLORS ────────────────────────────────────────────────────────────────
+const ACCOUNT_COLORS = ['#00e5a0','#4f8cff','#f5c842','#a78bfa','#ff4d6d','#38bdf8','#fb923c'];
+const EMOTION_COLORS = {
+  'Calm': '#00e5a0', 'Disciplined': '#4f8cff', 'Anxious': '#f5c842',
+  'FOMO': '#fb923c', 'Greedy': '#ff4d6d', 'Frustrated': '#f97316', 'Revenge': '#e11d48'
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const fmt = (n) => {
+  const abs = Math.abs(n);
+  const s = abs >= 1000 ? `$${(abs/1000).toFixed(1)}K` : `$${abs.toFixed(0)}`;
+  return n < 0 ? `-${s}` : s;
+};
+const fmtFull = (n) => (n >= 0 ? '+' : '') + '$' + n.toFixed(2);
+const pct = (n, total) => total === 0 ? 0 : Math.round((n / total) * 100);
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render() {
+  const closed = trades.filter(t => t.pnl !== undefined && t.pnl !== null && t.pnl !== '');
+  const wins = closed.filter(t => parseFloat(t.pnl) > 0);
+  const losses = closed.filter(t => parseFloat(t.pnl) < 0);
+  const totalPnl = closed.reduce((s, t) => s + parseFloat(t.pnl), 0);
+  const winCount = wins.length;
+  const lossCount = losses.length;
+  const wrPct = pct(winCount, closed.length);
+
+  // Stat cards
+  document.getElementById('stat-pnl').textContent = fmtFull(totalPnl).replace('+','$').replace('-','-$').replace('$$','$');
+  document.getElementById('stat-pnl').textContent = (totalPnl >= 0 ? '+' : '') + '$' + Math.abs(totalPnl).toFixed(2);
+  document.getElementById('stat-pnl').className = 'stat-value ' + (totalPnl >= 0 ? 'green' : 'red');
+  document.getElementById('stat-pnl-sub').textContent = `${closed.length} trades closed`;
+
+  document.getElementById('stat-wr').textContent = wrPct + '%';
+  document.getElementById('stat-wr-sub').textContent = `${winCount}W / ${lossCount}L`;
+
+  const avgR = closed.length ? (closed.reduce((s, t) => s + (parseFloat(t.risk) > 0 ? parseFloat(t.pnl) / parseFloat(t.risk) : 0), 0) / closed.length) : 0;
+  document.getElementById('stat-r').textContent = (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R';
+
+  const best = closed.length ? closed.reduce((a, b) => parseFloat(a.pnl) > parseFloat(b.pnl) ? a : b) : null;
+  const worst = closed.length ? closed.reduce((a, b) => parseFloat(a.pnl) < parseFloat(b.pnl) ? a : b) : null;
+  document.getElementById('stat-best').textContent = best ? '+$' + parseFloat(best.pnl).toFixed(2) : '$0';
+  document.getElementById('stat-best-sym').textContent = best ? best.symbol : '--';
+  document.getElementById('stat-worst').textContent = worst ? '-$' + Math.abs(parseFloat(worst.pnl)).toFixed(2) : '$0';
+  document.getElementById('stat-worst-sym').textContent = worst ? worst.symbol : '--';
+
+  // Donut
+  renderDonut(closed, totalPnl);
+
+  // Win/Loss panel
+  document.getElementById('wl-pct').textContent = wrPct + '%';
+  document.getElementById('wl-bar').style.width = wrPct + '%';
+  document.getElementById('wl-wins').textContent = winCount;
+  document.getElementById('wl-losses').textContent = lossCount;
+  const winSum = wins.reduce((s, t) => s + parseFloat(t.pnl), 0);
+  const lossSum = losses.reduce((s, t) => s + parseFloat(t.pnl), 0);
+  document.getElementById('wl-wins-pnl').textContent = '+$' + winSum.toFixed(2);
+  document.getElementById('wl-losses-pnl').textContent = '-$' + Math.abs(lossSum).toFixed(2);
+  document.getElementById('wl-avg-win').textContent = winCount ? '+$' + (winSum / winCount).toFixed(2) : '$0';
+  document.getElementById('wl-avg-loss').textContent = lossCount ? '-$' + Math.abs(lossSum / lossCount).toFixed(2) : '$0';
+
+  // Emotion breakdown
+  renderEmotions(trades);
+
+  // Monthly chart
+  renderMonthly(closed);
+
+  // Top setups
+  renderSetups(closed);
+
+  // Trade table
+  renderTable();
+
+  // Timestamp
+  document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function renderDonut(closed, totalPnl) {
+  const accountMap = {};
+  closed.forEach(t => {
+    const acc = t.account || 'Other';
+    accountMap[acc] = (accountMap[acc] || 0) + parseFloat(t.pnl);
+  });
+  const accounts = Object.keys(accountMap);
+  const values = accounts.map(a => accountMap[a]);
+
+  document.getElementById('donut-center-val').textContent = (totalPnl >= 0 ? '+$' : '-$') + Math.abs(totalPnl).toFixed(0);
+  document.getElementById('donut-total').textContent = (totalPnl >= 0 ? '+$' : '-$') + Math.abs(totalPnl).toFixed(2) + ' total';
+
+  const canvas = document.getElementById('donutChart');
+  if (donutChart) donutChart.destroy();
+
+  if (accounts.length === 0) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw placeholder circle
+    donutChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['No Data'],
+        datasets: [{ data: [1], backgroundColor: ['#222840'], borderWidth: 0 }]
+      },
+      options: {
+        cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        animation: false
+      }
+    });
+    document.getElementById('donut-legend').innerHTML = '<div style="color:var(--muted);font-size:11px;text-align:center;">No trades yet</div>';
+    return;
+  }
+
+  const colors = accounts.map((_, i) => ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]);
+  donutChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: accounts,
+      datasets: [{
+        data: values.map(Math.abs),
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#131726',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = values[ctx.dataIndex];
+              return ` ${ctx.label}: ${v >= 0 ? '+' : ''}$${v.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      animation: { duration: 800 }
+    }
+  });
+
+  // Legend
+  const legendEl = document.getElementById('donut-legend');
+  legendEl.innerHTML = accounts.map((acc, i) => `
+    <div class="legend-item">
+      <div class="legend-left">
+        <div class="legend-dot" style="background:${colors[i]}"></div>
+        <div class="legend-name">${acc}</div>
+      </div>
+      <div class="legend-val">${values[i] >= 0 ? '+' : ''}$${values[i].toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+function renderEmotions(trades) {
+  const emotionMap = {};
+  trades.forEach(t => {
+    const e = t.emotion || 'Calm';
+    emotionMap[e] = (emotionMap[e] || 0) + 1;
+  });
+  const entries = Object.entries(emotionMap).sort((a, b) => b[1] - a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+  const el = document.getElementById('emotion-list');
+  if (!entries.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">No trades logged yet</div>';
+    return;
+  }
+  el.innerHTML = entries.slice(0, 6).map(([name, count]) => `
+    <div class="emotion-item">
+      <div class="emotion-label">${name}</div>
+      <div class="emotion-bar-wrap">
+        <div class="emotion-bar" style="width:${Math.round(count/max*100)}%;background:${EMOTION_COLORS[name]||'#4f8cff'}"></div>
+      </div>
+      <div class="emotion-count">${count}</div>
+    </div>
+  `).join('');
+}
+
+function renderMonthly(closed) {
+  // Group by month
+  const monthMap = {};
+  closed.forEach(t => {
+    const d = new Date(t.date);
+    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    monthMap[key] = (monthMap[key] || 0) + parseFloat(t.pnl);
+  });
+
+  const labels = Object.keys(monthMap);
+  const values = labels.map(l => monthMap[l]);
+  const colors = values.map(v => v >= 0 ? 'rgba(0,229,160,0.8)' : 'rgba(255,77,109,0.8)');
+
+  const canvas = document.getElementById('monthlyChart');
+  if (monthlyChart) monthlyChart.destroy();
+
+  if (!labels.length) {
+    monthlyChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{ data: [0,0,0,0,0,0], backgroundColor: '#222840', borderRadius: 4 }]
+      },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { ticks: { color: '#6b7499', font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#6b7499', font: { size: 10 } }, grid: { color: '#1a2035' } }
+        },
+        animation: false
+      }
+    });
+    return;
+  }
+
+  monthlyChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (ctx) => ` $${ctx.raw.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#6b7499', font: { size: 10, family: 'DM Mono' } }, grid: { display: false }, border: { display: false } },
+        y: { ticks: { color: '#6b7499', font: { size: 10, family: 'DM Mono' } }, grid: { color: '#1a2035' }, border: { display: false } }
+      },
+      animation: { duration: 800 }
+    }
+  });
+}
+
+function renderSetups(closed) {
+  const setupMap = {};
+  closed.forEach(t => {
+    const s = t.setup || 'Untagged';
+    if (!setupMap[s]) setupMap[s] = { pnl: 0, wins: 0, total: 0 };
+    setupMap[s].pnl += parseFloat(t.pnl);
+    setupMap[s].total++;
+    if (parseFloat(t.pnl) > 0) setupMap[s].wins++;
+  });
+  const entries = Object.entries(setupMap).sort((a, b) => b[1].pnl - a[1].pnl);
+  const el = document.getElementById('setup-list');
+  if (!entries.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">No setups yet</div>';
+    return;
+  }
+  el.innerHTML = entries.slice(0, 5).map(([name, data], i) => `
+    <div class="setup-item">
+      <div class="setup-rank">${i+1}</div>
+      <div class="setup-name">${name}</div>
+      <div class="setup-wr">${pct(data.wins, data.total)}%</div>
+      <div class="setup-pnl ${data.pnl < 0 ? 'neg' : ''}" style="${data.pnl < 0 ? 'color:var(--loss)' : ''}">${data.pnl >= 0 ? '+' : ''}$${data.pnl.toFixed(0)}</div>
+    </div>
+  `).join('');
+}
+
+function renderTable() {
+  const tbody = document.getElementById('trade-tbody');
+  if (!trades.length) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">No trades yet. Click <strong style="color:var(--accent)">+ Add Trade</strong> to log your first trade.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = [...trades].reverse().map((t, ri) => {
+    const i = trades.length - ri;
+    const pnl = parseFloat(t.pnl);
+    const risk = parseFloat(t.risk);
+    const rMult = risk > 0 ? (pnl / risk).toFixed(2) : '--';
+    return `
+      <tr>
+        <td class="td-mono" style="color:var(--muted)">${i}</td>
+        <td class="td-mono">${t.date}</td>
+        <td><strong>${t.symbol}</strong></td>
+        <td style="color:var(--muted);font-size:11px">${t.account}</td>
+        <td style="color:var(--muted);font-size:11px">${t.setup || '--'}</td>
+        <td><span class="badge ${t.direction==='Long'?'badge-long':'badge-short'}">${t.direction}</span></td>
+        <td class="td-mono ${pnl >= 0 ? 'pos' : 'neg'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+        <td class="td-mono ${pnl >= 0 ? 'pos' : 'neg'}">${rMult !== '--' ? (parseFloat(rMult) >= 0 ? '+' : '') + rMult + 'R' : '--'}</td>
+        <td style="font-size:11px;color:var(--muted)">${t.emotion}</td>
+        <td><span class="badge ${pnl > 0 ? 'badge-win' : 'badge-loss'}">${pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'B/E'}</span></td>
+        <td><button onclick="deleteTrade(${trades.length-1-ri})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px;" title="Delete">&#215;</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+function saveTrade() {
+  const trade = {
+    date: document.getElementById('f-date').value,
+    symbol: document.getElementById('f-symbol').value.toUpperCase() || 'UNKNOWN',
+    account: document.getElementById('f-account').value || 'Personal',
+    setup: document.getElementById('f-setup').value || '',
+    direction: document.getElementById('f-direction').value,
+    emotion: document.getElementById('f-emotion').value,
+    pnl: document.getElementById('f-pnl').value || '0',
+    risk: document.getElementById('f-risk').value || '0',
+  };
+  trades.push(trade);
+  localStorage.setItem('tsb_trades', JSON.stringify(trades));
+  closeModal();
+  render();
+}
+function deleteTrade(idx) {
+  trades.splice(idx, 1);
+  localStorage.setItem('tsb_trades', JSON.stringify(trades));
+  render();
+}
+
+// Close modal on overlay click
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// ── SEED DATA (so it doesn't look empty on first load) ──────────────────
+if (!trades.length) {
+  const seed = [
+    { date: '2025-01-06', symbol: 'EURUSD', account: 'FTMO', setup: 'Break & Retest', direction: 'Long', emotion: 'Calm', pnl: '480', risk: '200' },
+    { date: '2025-01-08', symbol: 'AAPL', account: 'Personal', setup: 'EMA Cross', direction: 'Long', emotion: 'Disciplined', pnl: '320', risk: '150' },
+    { date: '2025-01-10', symbol: 'GBPUSD', account: 'FTMO', setup: 'Order Block', direction: 'Short', emotion: 'Calm', pnl: '-180', risk: '180' },
+    { date: '2025-01-13', symbol: 'BTC/USD', account: 'Bybit', setup: 'FVG Fill', direction: 'Long', emotion: 'FOMO', pnl: '-220', risk: '200' },
+    { date: '2025-01-15', symbol: 'EURUSD', account: 'FTMO', setup: 'Break & Retest', direction: 'Long', emotion: 'Disciplined', pnl: '560', risk: '200' },
+    { date: '2025-01-17', symbol: 'TSLA', account: 'Personal', setup: 'Pin Bar', direction: 'Long', emotion: 'Calm', pnl: '890', risk: '300' },
+    { date: '2025-01-20', symbol: 'GBPJPY', account: 'FTMO', setup: 'Order Block', direction: 'Short', emotion: 'Anxious', pnl: '-340', risk: '200' },
+    { date: '2025-01-22', symbol: 'XAUUSD', account: 'Personal', setup: 'FVG Fill', direction: 'Long', emotion: 'Calm', pnl: '750', risk: '250' },
+    { date: '2025-02-03', symbol: 'EURUSD', account: 'FTMO', setup: 'Break & Retest', direction: 'Short', emotion: 'Disciplined', pnl: '430', risk: '200' },
+    { date: '2025-02-07', symbol: 'S&P500', account: 'Personal', setup: 'EMA Cross', direction: 'Long', emotion: 'Calm', pnl: '1100', risk: '400' },
+    { date: '2025-02-10', symbol: 'BTC/USD', account: 'Bybit', setup: 'FVG Fill', direction: 'Long', emotion: 'Greedy', pnl: '-500', risk: '300' },
+    { date: '2025-02-14', symbol: 'GBPUSD', account: 'FTMO', setup: 'Pin Bar', direction: 'Long', emotion: 'Calm', pnl: '290', risk: '150' },
+  ];
+  trades = seed;
+  localStorage.setItem('tsb_trades', JSON.stringify(trades));
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
